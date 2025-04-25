@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 )
 
 type ParcelStore struct {
@@ -76,6 +75,10 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 		res = append(res, p)
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return res, nil
 }
 
@@ -96,54 +99,30 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 func (s ParcelStore) SetAddress(number int, address string) error {
 	// реализуйте обновление адреса в таблице parcel
 	// менять адрес можно только если значение статуса registered
-	row := s.db.QueryRow("SELECT status FROM parcel WHERE number = :number", sql.Named("number", number))
 
-	var status string
+	_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number AND status = :status",
+		sql.Named("address", address),
+		sql.Named("number", number),
+		sql.Named("status", ParcelStatusRegistered))
 
-	err := row.Scan(&status)
 	if err != nil {
 		return err
 	}
-
-	switch status {
-	case ParcelStatusRegistered:
-		_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number",
-			sql.Named("address", address),
-			sql.Named("number", number))
-		if err != nil {
-			return err
-		}
-		return nil
-	case ParcelStatusSent:
-		return fmt.Errorf("Невозможно изменить адрес: посылка уже отправлена")
-	default:
-		return fmt.Errorf("Невозможно изменить адрес: посылка уже доставлена")
-	}
+	return nil
 }
 
 func (s ParcelStore) Delete(number int) error {
 	// реализуйте удаление строки из таблицы parcel
 	// удалять строку можно только если значение статуса registered
-	row := s.db.QueryRow("SELECT status FROM parcel WHERE number = :number", sql.Named("number", number))
 
-	var status string
+	_, err := s.db.Exec("DELETE from parcel WHERE number = :number AND status = :status",
+		sql.Named("number", number),
+		sql.Named("status", ParcelStatusRegistered))
 
-	err := row.Scan(&status)
 	if err != nil {
 		return err
 	}
 
-	switch status {
-	case ParcelStatusRegistered:
-		_, err := s.db.Exec("DELETE from parcel WHERE number = :number", sql.Named("number", number))
-		if err != nil {
-			return err
-		}
-		return nil
-	case ParcelStatusSent:
-		return fmt.Errorf("Невозможно удалить посылку: она уже отправлена")
-	default:
-		return fmt.Errorf("Невозможно удалить посылку: она уже доставлена")
-	}
+	return nil
 
 }
